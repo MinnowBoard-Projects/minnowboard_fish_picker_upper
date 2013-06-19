@@ -1,0 +1,7 @@
+Handle situation where no fish are detected at all (arm keeps moving left without end).
+
+Research how to detect fish by color. Hopefully this doesn't involve Haar training each individual fish color, and I can do it by detecting any fish color, then determining the color values within the object detection box to infer which color the fish is.
+
+Use a python state machine library.
+
+More user-friendly documentation which teaches principles as it explains the setup.

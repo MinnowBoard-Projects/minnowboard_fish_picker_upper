@@ -1,0 +1,206 @@
+MinnowBoard Fish Picker-Upper
+=============================
+
+This is the MinnowBoard Fish Picker-Upper, documentation and code for a
+demo that has been used at conferences and user group events to
+introduce people to the MinnowBoard (http://minnowboard.org).
+
+This demo makes use of the OpenCV computer vision library to detect an
+object (a foam "fish") and control a cheap robotic arm to pick up the
+fish and move it. It is powered by the MinnowBoard embedded computer and
+the Yocto Project.
+
+A video of how the demo works can be viewed here:
+
+https://www.youtube.com/watch?v=idSvJ-RXhq0
+
+The goals of the demo were to come up with an affordable and
+replicatable project that leverages a technology (autonomous robot
+control using computer vision) that most people perceive as complex,
+and try make it as easy as possible to get started with it. 
+
+This demo is a work in progress, and I encourage people to take it and
+modify it as desired for greater capabilities, improved simplicity, etc.
+
+This software comes without any warranty, and neither I nor Intel Corp.
+takes any responsibility for possible damage to computers, robot arms, or
+your sanity for attempting to run this code or replicate this project.
+
+Scott Garman - <scott.a.garman@intel.com>
+Technical Evangelist for MinnowBoard and the Yocto Project
+Intel Open Source Technology Center
+
+Equipment List
+==============
+
+Here's a list of the components used to create this demo:
+
+MinnowBoard (Available Summer 2013):
+http://minnowboard.org
+
+OWI-535 Robotic Arm Edge Kit:
+http://www.owirobots.com/store/index.php?l=product_detail&p=110
+
+OWI USB Interface for Robotic Arm:
+http://www.amazon.com/OWI-USB-Interface-Robotic-Arm/dp/B0028MBWS2/
+
+Logitech C310 USB Webcam:
+http://www.newegg.com/Product/Product.aspx?Item=N82E16826104368
+
+Two 3V DC, 1 Amp power supplies. These multi-voltage Enercell ones from
+Radio Shack were used when set to 3V, but I'm sure you can save some
+money if you look around for something cheaper:
+http://www.radioshack.com/product/index.jsp?productId=3875403
+
+The blue placemat I used was just background wallpaper used to line the
+back of fish aquariums. It's mainly useful for marking a 6-inch radius
+from the robot arm for fish placement.
+
+The foam fish was cut from a soda can "cozy" used to insulate soda or
+beer cans. I found these in several colors from a local craft store.
+Cut out the bottom from the cozy and then cut a 1" strip from the foam.
+Then curl one of the ends back and superglue it to itself. Here's a
+close-up photo:
+http://www.minnowboard.org/mb_owi_opencv_demo/foam_fish.jpg
+
+Robot Arm Modifications
+=======================
+
+The OWI robot arm is powered by batteries by default. Since some of the
+arm movements are software routines based on timing values, they are
+too sensitive to fluctuations in battery power as the batteries drain
+over time. So the first modification I made was to power the arm with a
+pair of 3V power supplies:
+
+http://www.minnowboard.org/mb_owi_opencv_demo/power_supplies.jpg
+
+Take a look at the circuit diagram at the end of the OWI assembly
+instruction manual for specific wiring guidance. 
+
+Install the USB control board in place of the default one, following the
+instructions included with the USB kit.
+
+The webcam was attached to the base of the robot arm using a set of 3M
+double-sided adhesive strips:
+
+http://www.minnowboard.org/mb_owi_opencv_demo/webcam_mounting.jpg
+
+I used a dremel tool to shave off just a bit of the plastic on each side
+of the webcam's base to ensure there was no friction with the robot
+arm's "shoulder" motion.
+
+Software Dependencies
+=====================
+
+The Linux OS image was generated using the 1.3 "Danny" release of the
+Yocto Project and the following custom layer that was developed for
+this demo:
+
+https://github.com/MinnowBoard/meta-robotarm-opencv-demo
+
+See the Yocto Project web site (http://yoctoproject.org) to get
+started - you will find plenty of documentation and new user tutorials
+to can get started with. 
+
+Alternately, should you wish to use another Linux OS (e.g, try it out
+using a Linux distro running on your laptop), the software dependencies
+you'll need for this code are:
+
+* Python
+* OpenCV
+* pyusb 1.0
+* numpy
+* v4l
+
+Training OpenCV
+===============
+
+Unless you manage to re-create the exact setup and use the same foam
+"fish" objects that I did, you will need to create an OpenCV Haar
+database to detect the object you're trying to pick up. I found the
+following tutorials helpful in learning how to train Haar object
+detection:
+
+http://www.technolabsz.com/2011/08/how-to-do-opencv-haar-training.html
+
+http://note.sonots.com/SciSoftware/haartraining.html
+
+https://gigadom.wordpress.com/2011/10/12/hand-detection-through-haartraining-a-hands-on-approach/
+
+Haar training is unfortuantely a fairly tedious process, as you need to
+create and define the Region of Interest (ROI) using hundreds of photos. 
+
+I'll share the Haar databases I used for this demo. I found that the
+amount of ambient light in the room could significantly impact the
+detection reliabilty, so I have two sets of Haar data I'll choose from
+depending on how bright the room is.
+
+This set of data was developed using only 143 positive samples and 18
+Haar stages, and works well in lower light situations:
+
+http://www.minnowboard.org/mb_owi_opencv_demo/haar_18stages_143pos_good_for_low_light.tar.gz
+
+This set of data was developed using 403 positive samples and 18 Haar
+stages, and works well in bright light situations:
+
+http://www.minnowboard.org/mb_owi_opencv_demo/haar_18stages_403pos_good_for_strong_light.tar.gz
+
+You'll need to extract these tarballs someplace on your system and then
+point the haar_dbfile variable in minnowboard_fish_picker-upper.py to
+the path of the haarclassifier.xml file. 
+
+Running the Software
+====================
+
+Troubleshooting Object Detection Reliability:
+
+Before running the script, take note of the following variables in
+minnowboard_fish_picker-upper.py:
+
+  min_size = (60, 60)
+  image_scale = 2
+  haar_scale = 1.2
+  min_neighbors = 8
+
+These values can all be tweaked to further improve object detection
+reliability. If you run the script in debug mode:
+
+ ./minnowboard_fish_picker-upper.py debug
+
+you should see the video output from your webcam and be able to test the
+object detection without moving the robot arm. It's handy for verifying
+the object detection works, or quickly running successive tests after
+tweaking the variables mentioned above. 
+
+Robot Arm Calibration Position:
+
+The script expects the OWI Robotic Arm Edge to be in the following
+position before it is run:
+
+* Base: Rotated clockwise as far as it will go
+* Shoulder: Pointed straight up
+* Elbow: Align the longer "notch" in the yellow motor housing with the
+  middle channel in the black outer plastic arm support
+* Wrist: All the way down
+* Grippers: Closed
+
+Here are photos of the calibrated starting position, and a close-up of
+the elbow position:
+
+http://www.minnowboard.org/mb_owi_opencv_demo/calibrated_arm.jpg
+http://www.minnowboard.org/mb_owi_opencv_demo/calibrated_elbow_closeup.jpg
+
+You're free to use a different starting position for the robot arm if
+desired, but you'll need to significantly modify the arm control
+functions in the script. 
+
+Now you should be ready to run the demo! Run
+minnowboard_fish_picker-upper.py, and the robot arm should begin
+rotating counterclockwise, looking for an object. If the rotation
+reaches the limit of its counterclockwise rotation without having found
+an object, be prepared to hit the Off switch on the arm to stop the
+rotation - it's on my TODO list to add support for resetting itself if
+it never finds an object. In fact, there's plenty left to do - see the
+TODO file for more tasks you can help out with if you'd like! :)
+
+I welcome questions and comments at scott.a.garman@intel.com.
