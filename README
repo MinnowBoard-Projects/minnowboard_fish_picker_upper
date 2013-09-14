@@ -35,8 +35,8 @@ Equipment List
 
 Here's a list of the components used to create this demo:
 
-MinnowBoard (Available Summer 2013):
-http://minnowboard.org
+MinnowBoard:
+http://minnowboard.org/where-to-buy/
 
 OWI-535 Robotic Arm Edge Kit:
 http://www.owirobots.com/store/index.php?l=product_detail&p=110
@@ -163,14 +163,20 @@ minnowboard_fish_picker-upper.py:
   min_neighbors = 8
 
 These values can all be tweaked to further improve object detection
-reliability. If you run the script in debug mode:
+reliability. A debug utility, debug_object_detection_test.py, has
+been included to allow you to easily change these values and test
+them without operating the robot arm.
 
- ./minnowboard_fish_picker-upper.py debug
+Let's Pick Up Some Fish!
 
-you should see the video output from your webcam and be able to test the
-object detection without moving the robot arm. It's handy for verifying
-the object detection works, or quickly running successive tests after
-tweaking the variables mentioned above. 
+TODO: Expanation of GPIO pushbutton switch wiring.
+
+To start the demo, run:
+
+	./minnowboard_fish_picker-upper.py
+
+You will see the video output from the webcam, and to set the robotic
+arm in motion, looking for fish, press the pushbutton switch.
 
 Robot Arm Calibration Position:
 
