@@ -19,7 +19,7 @@ total_rotation_time = 15 # seconds (no, it's really 16.5s)
 rotation_time_left = total_rotation_time
 rotation_time_right = 0
 rotation_direction = ""
-time_marker = 0
+rotation_time_marker = 0
 
 # Parameters for haar detection
 # From the API:
@@ -50,18 +50,31 @@ haar_dbfile = "/home/root/opencv/green_fish/haarclassifier.xml"
 # you get from OpenCV's object detection. It represents what should
 # be the middle of the object detection box that gets drawn around
 # the object:
-centered_fish_coord = 165
+centered_fish_coord = 155
 
 #####################################################################
 
+# Grab num_frames frames from the camera, but don't bother displaying
+# them. Useful to help "catch up" QueryFrame past buffered data.
+def clear_camera_buffer(num_frames):
+	global capture, cv
+
+	for index in range(0, num_frames):
+		frame = cv.QueryFrame(capture)
+
 # Scan the webcam video stream for fish objects. Returns 0 if the
 # time_limit (seconds to watch for) parameter was exceeded, or the X
-# coordinate representing the center of the object detection box. 
-def watch_for_fish(time_limit):
-	global capture, cv, window_title, waitkey_resolution, time_marker
+# coordinate representing the center of the object detection box.
+# You can skip the return behavior by passing False as an optional
+# second argument.
+def watch_for_fish(time_limit, return_when_found=True):
+	global capture, cv, window_title, waitkey_resolution
 
 	time_marker = time.time()
 	frame_copy = None
+
+	clear_camera_buffer(1)
+
 	while True:
 		frame = cv.QueryFrame(capture)
 		if not frame:
@@ -82,10 +95,8 @@ def watch_for_fish(time_limit):
 			cv.Flip(frame, frame_copy, 0)
 
 		fish_coord = detect_and_draw(frame_copy)
-		if fish_coord:
+		if fish_coord and return_when_found:
 			#print "Fish detected at X coord ", fish_coord[0]
-			if fish_coord[0] == 0:
-				print "NO NO NO THIS IS BAD!"
 			return fish_coord[0]
 
 		now = time.time()
@@ -139,6 +150,7 @@ def center_on_fish():
 	while True:
 		stop_base_rotation()
 
+		clear_camera_buffer(3)
 		fish_coord = watch_for_fish(3)
 		if fish_coord == 0:
 			# Object detection may marginally working. Nudge the arm
@@ -169,27 +181,33 @@ def center_on_fish():
 
 def rotate_base_left():
 	print "Rotating base to the left"
-	global time_marker, rotation_direction
+	global rotation_time_marker, rotation_direction
 	rotation_direction = "left"
-	time_marker = time.time()
+	rotation_time_marker = time.time()
 	cmd = arm.buildcommand(0,0,0,0,2)
 	arm.sendcommand(dev,cmd)
 
 def rotate_base_right():
 	print "Rotating base to the right"
-	global time_marker, rotation_direction
+	global rotation_time_marker, rotation_direction
 	rotation_direction = "right"
-	time_marker = time.time()
+	rotation_time_marker = time.time()
 	cmd = arm.buildcommand(0,0,0,0,1)
 	arm.sendcommand(dev,cmd)
 
 def stop_base_rotation():
 	print "Stopping base rotation"
-	global time_marker, rotation_time_left, rotation_time_right
+	global rotation_time_marker, rotation_time_left, rotation_time_right
 	arm.sendcommand(dev)
 
 	now = time.time()
-	elapsed_time = now - time_marker
+	elapsed_time = now - rotation_time_marker
+
+	if elapsed_time > total_rotation_time:
+		# This can happen when retrying pick-ups, so don't update
+		# the rotation time variables
+		return
+
 	if rotation_direction == "left":
 		rotation_time_left = rotation_time_left - elapsed_time
 	else:
@@ -198,13 +216,14 @@ def stop_base_rotation():
 	watch_for_fish(1)
 
 # Timing values produced by trial and error - these worked for picking
-# up a fish located six inches from the outer edge of the robot base.
+# up a fish located six inches from the outer edge of the OWI robot base.
 def pick_up():
 	print "Picking up fish"
 
-	# TODO: After picking up the fish, what if we checked the
-	# webcam view for the fish? Then we could detect a failed
-	# pick-up attempt and retry it!
+	# Don't run watch_for_fish() immediately so the last object
+	# detection ROI appears on the screen, and the operator can
+	# explain how its accuracy might impact the success of this
+	# picking up operation.
 
 	# Elbow down
 	cmd = arm.buildcommand(0,2,0,0,0)
@@ -221,31 +240,61 @@ def pick_up():
 	# Open grip
 	cmd = arm.buildcommand(0,0,0,2,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.75)
+	watch_for_fish(1.75, False)
 	arm.sendcommand(dev)
 
 	# Shoulder down
 	cmd = arm.buildcommand(2,0,0,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.4)
+	watch_for_fish(1.4, False)
+	arm.sendcommand(dev)
 
 	# Close grip
 	cmd = arm.buildcommand(0,0,0,1,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.3)
+	watch_for_fish(1.3, False)
 	arm.sendcommand(dev)
 
 	# Elbow up
 	cmd = arm.buildcommand(0,1,0,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(4.7)
+	watch_for_fish(4.45, False)
+	arm.sendcommand(dev)
+
+	watch_for_fish(0.5, False)
+
+def undo_pick_up():
+	print "Undo-ing pick up"
+
+	# Elbow up
+	cmd = arm.buildcommand(0,1,0,0,0)
+	arm.sendcommand(dev,cmd)
+	watch_for_fish(0.45, False)
+	arm.sendcommand(dev)
+
+	# Close grip
+	cmd = arm.buildcommand(0,0,0,1,0)
+	arm.sendcommand(dev,cmd)
+	watch_for_fish(0.5, False)
+	arm.sendcommand(dev)
+
+	# Wrist down
+	cmd = arm.buildcommand(0,0,2,0,0)
+	arm.sendcommand(dev,cmd)
+	watch_for_fish(3.2, False)
+	arm.sendcommand(dev)
+
+	# Shoulder up
+	cmd = arm.buildcommand(1,0,0,0,0)
+	arm.sendcommand(dev,cmd)
+	watch_for_fish(1.8, False)
 	arm.sendcommand(dev)
 
 def move_to_plate():
 	global rotation_time_left
 
 	rotate_base_left()
-	time.sleep(rotation_time_left)
+	watch_for_fish(rotation_time_left, False)
 	stop_base_rotation()
 
 def put_down():
@@ -254,13 +303,13 @@ def put_down():
 	# Elbow down
 	cmd = arm.buildcommand(0,2,0,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(3.5)
+	watch_for_fish(3.5, False)
 	arm.sendcommand(dev)
 
 	# Open grip
 	cmd = arm.buildcommand(0,0,0,2,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.25)
+	watch_for_fish(1.25, False)
 	arm.sendcommand(dev)
 
 def return_to_calibration_position():
@@ -271,39 +320,42 @@ def return_to_calibration_position():
 	# Shoulder up
 	cmd = arm.buildcommand(1,0,0,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.8)
+	watch_for_fish(1.8, False)
 	arm.sendcommand(dev)
 
 	# Elbow up
 	cmd = arm.buildcommand(0,1,0,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(4.25)
+	watch_for_fish(4.65, False)
 	arm.sendcommand(dev)
 
 	# Close grip
 	cmd = arm.buildcommand(0,0,0,1,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(1.6)
+	watch_for_fish(1.6, False)
 	arm.sendcommand(dev)
 
 	# Wrist down
 	cmd = arm.buildcommand(0,0,2,0,0)
 	arm.sendcommand(dev,cmd)
-	time.sleep(3.1)
+	watch_for_fish(3.2, False)
 	arm.sendcommand(dev)
 
 	# Base clockwise
 	rotate_base_right()
-	time.sleep(rotation_time_right - 0.6)
+	watch_for_fish(rotation_time_right - 0.6, False)
 	stop_base_rotation()
 
 def pick_up_fish():
 	center_on_fish()
+	watch_for_fish(0.5, False)
 	pick_up()
-	move_to_plate()
-	put_down()
-	return_to_calibration_position()
-
+	fish_coord = watch_for_fish(1)
+	if fish_coord > 0:
+		# Pick up attempt failed, so retry
+		undo_pick_up()
+		pick_up_fish()
+		
 # main:
 
 # OWI robot arm setup
@@ -345,14 +397,19 @@ while True:
 	fish_coord = watch_for_fish(rotation_time_left)
 	if fish_coord > 0:
 		pick_up_fish()
+		move_to_plate()
+		put_down()
+		return_to_calibration_position()
 		break
 
 	stop_base_rotation()
 	rotate_base_right()
 	fish_coord = watch_for_fish(rotation_time_right)
 	if fish_coord > 0:
-		center_on_fish()
 		pick_up_fish()
+		move_to_plate()
+		put_down()
+		return_to_calibration_position()
 		break
 	stop_base_rotation()
 
