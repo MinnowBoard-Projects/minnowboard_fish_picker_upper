@@ -40,12 +40,20 @@ haar_flags = 0
 # Used when scaling images. 1.2 slowed down the video and allowed for
 # some false positives. 2 seemed fast and accurate. If detection is not
 # happening in your lighting conditions, try a value between 1.5 and 2.
-# This variable helps A LOT to account for different lighting conditions:
+# This variable helps A LOT to compensate for lighting conditions:
 image_scale = 1.6
 
 haar_dbfile = "/home/root/opencv/green_fish/haarclassifier.xml"
 
 #####################################################################
+
+# Grab num_frames frames from the camera, but don't bother displaying
+# them. Useful to help "catch up" QueryFrame past buffered data.
+def clear_camera_buffer(num_frames):
+	global capture, cv
+
+	for index in range(0, num_frames):
+		frame = cv.QueryFrame(capture)
 
 # Scan the webcam video stream for fish objects. Returns 0 if the
 # time_limit (seconds to watch for) parameter was exceeded, or the X
@@ -55,6 +63,9 @@ def watch_for_fish(time_limit):
 
 	time_marker = time.time()
 	frame_copy = None
+
+	clear_camera_buffer(1)
+
 	while True:
 		frame = cv.QueryFrame(capture)
 		if not frame:
